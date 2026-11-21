@@ -714,6 +714,25 @@ für dich ein</string>
 
     <string name="home_menu_manual_entry">Manuelle Eingabe</string>
 
+    <string name="home_menu_quick_paste">Schnelleingabe</string>
+
+    <string name="quick_paste_title">Schnelleingabe</string>
+    <string name="quick_paste_input_placeholder">Nährwerttext einfügen, z. B. Hähnchen 350 kcal 30 protein 20 carbs 10 fat</string>
+    <string name="quick_paste_name_label">Lebensmittel</string>
+    <string name="quick_paste_name_placeholder">z. B. Hähnchenbrust</string>
+    <string name="quick_paste_field_label">%1$s (%2$s)</string>
+    <string name="quick_paste_no_nutrition">Keine Nährwerte gefunden. Versuch es mit „Chicken 350 kcal 30 protein“.</string>
+    <string name="quick_paste_no_name">Gib ein Lebensmittel an.</string>
+    <string name="quick_paste_missing">Nicht gefunden: %1$s. Das Tagebuch braucht diese Werte; gib einen Wert ein (0 ist okay).</string>
+    <string name="quick_paste_conflict">%1$s kommt zweimal vor (%2$s). Gib nur einen Wert ein.</string>
+    <string name="quick_paste_unit_error">%1$s lässt sich nicht in %2$s angeben.</string>
+    <string name="quick_paste_converted_kj">%1$s kJ umgerechnet ≈ %2$s kcal.</string>
+    <string name="quick_paste_abbrev">„%1$s“ allein ist mehrdeutig. Gib den Wert selbst ein.</string>
+    <string name="quick_paste_invalid_number">Gib für %1$s eine Zahl ein.</string>
+    <string name="quick_paste_out_of_range">%1$s liegt außerhalb des Bereichs für einen Tagebucheintrag.</string>
+    <string name="quick_paste_negative">%1$s ist negativ; gib einen positiven Wert ein.</string>
+    <string name="quick_paste_implausible">%1$s %2$s ist zu groß für einen Tagebucheintrag.</string>
+
     <string name="home_menu_saved_meals">Gespeicherte Mahlzeiten</string>
 
     <string name="home_menu_barcode">Barcode</string>

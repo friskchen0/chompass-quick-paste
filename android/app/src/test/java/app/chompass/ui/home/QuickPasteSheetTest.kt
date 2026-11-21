@@ -258,4 +258,77 @@ class QuickPasteSheetTest {
         assertEquals(0, saved.single().caloriesKcal)
         assertEquals(0.0, saved.single().carbsG, 0.001)
     }
+
+    // --------------------------------- optional-field parity (review round 3)
+
+    @Test
+    fun `invalid fiber text blocks save instead of saving as not provided`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        saveButton().assertIsEnabled()
+
+        composeRule.onNodeWithTag(QuickPasteTestTags.FIBER).performTextReplacement("abc")
+        composeRule.waitForIdle()
+
+        saveButton().assertIsNotEnabled()
+        composeRule.onNodeWithText("Enter a number for Fiber.").assertExists()
+    }
+
+    @Test
+    fun `blank fiber still saves as not provided`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, saved.size)
+        assertNull(saved.single().fiberG)
+    }
+
+    @Test
+    fun `fiber zero is saved as zero`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithTag(QuickPasteTestTags.FIBER).performTextReplacement("0")
+        composeRule.waitForIdle()
+
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(0.0, saved.single().fiberG!!, 0.001)
+    }
+
+    @Test
+    fun `non finite fiber text blocks save`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithTag(QuickPasteTestTags.FIBER).performTextReplacement("Infinity")
+        composeRule.waitForIdle()
+
+        saveButton().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `negative fiber blocks save`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithTag(QuickPasteTestTags.FIBER).performTextReplacement("-5")
+        composeRule.waitForIdle()
+
+        saveButton().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `invalid required field asks for a number instead of claiming it is missing`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithTag(QuickPasteTestTags.PROTEIN).performTextReplacement("abc")
+        composeRule.waitForIdle()
+
+        saveButton().assertIsNotEnabled()
+        composeRule.onNodeWithText("Enter a number for Protein.").assertExists()
+        composeRule.onAllNodesWithText("Not found: Protein. The diary needs these; type a value (0 is fine).")
+            .assertCountEquals(0)
+    }
 }

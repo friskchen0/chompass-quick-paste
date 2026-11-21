@@ -278,6 +278,7 @@
     <string name="quick_paste_unit_error">%1$s 不能用 %2$s 作单位。</string>
     <string name="quick_paste_converted_kj">已换算 %1$s kJ ≈ %2$s kcal。</string>
     <string name="quick_paste_abbrev">“%1$s”单独出现时含义不明确，请手动填写。</string>
+    <string name="quick_paste_invalid_number">「%1$s」请填写数字。</string>
     <string name="quick_paste_out_of_range">「%1$s」超出单条日记记录可接受的范围。</string>
     <string name="quick_paste_negative">「%1$s」是负数，请填写正数。</string>
     <string name="quick_paste_implausible">「%1$s」的数值 %2$s 超过单条记录的上限。</string>

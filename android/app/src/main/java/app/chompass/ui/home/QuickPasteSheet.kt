@@ -246,8 +246,11 @@ private fun NumberField(
 @Composable
 private fun QuickPasteIssueLines(state: QuickPasteState) {
     val lines = mutableListOf<Pair<String, Boolean>>()
-    // Out-of-range is computed from what the fields hold right now, because the
-    // user can type a value the parser never saw.
+    // Both of these are computed from what the fields hold right now, because
+    // the user can type something the parser never saw.
+    for (field in state.invalidNumberFields) {
+        lines += stringResource(R.string.quick_paste_invalid_number, fieldLabel(field)) to true
+    }
     for (field in state.outOfRangeFields) {
         lines += stringResource(R.string.quick_paste_out_of_range, fieldLabel(field)) to true
     }
@@ -442,9 +445,20 @@ internal class QuickPasteState {
             NutritionTextParser.MAX_GRAMS
         }
 
-    /** Required columns that are still blank (or not a number) right now. */
+    /**
+     * Fields holding text that is not a number. Blank is "not provided" — only
+     * a non-blank non-number counts here, so a stray `abc` in the optional
+     * fiber column cannot be shrugged off as "absent" and saved.
+     */
+    val invalidNumberFields: List<NutrientField>
+        get() = NutrientField.entries.filter { field ->
+            val raw = textOf(field).trim()
+            raw.isNotEmpty() && raw.toDoubleOrNull() == null
+        }
+
+    /** Required columns that are still blank right now. */
     val missingRequiredFields: List<NutrientField>
-        get() = NutritionTextParser.REQUIRED_FIELDS.filter { valueOf(it) == null }
+        get() = NutritionTextParser.REQUIRED_FIELDS.filter { textOf(it).isBlank() }
 
     /** Fields holding a number a single diary row cannot take. Save stays off. */
     val outOfRangeFields: List<NutrientField>
@@ -484,6 +498,7 @@ internal class QuickPasteState {
     val draft: QuickPasteDraft?
         get() {
             if (name.isBlank()) return null
+            if (invalidNumberFields.isNotEmpty()) return null
             if (missingRequiredFields.isNotEmpty()) return null
             if (outOfRangeFields.isNotEmpty()) return null
             val kcal = valueOf(NutrientField.CALORIES) ?: return null
