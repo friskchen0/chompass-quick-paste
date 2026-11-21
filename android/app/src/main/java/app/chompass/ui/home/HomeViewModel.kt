@@ -4138,6 +4138,31 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /**
+     * Quick Paste Nutrition Entry: the parser already produced a confirmed
+     * draft, and this hands it to the exact same manual-entry save as the
+     * "Manual entry" dialog — name disambiguation, planned-entry handling,
+     * Health Connect mirroring and the `saving` re-entrancy guard all come
+     * along for free. Fiber is the one field [saveManualEntry] cannot take as a
+     * positional argument, so it rides [MicronutrientValues].
+     */
+    fun saveQuickPasteEntry(
+        draft: app.chompass.services.quickpaste.QuickPasteDraft,
+        mealType: String = MealType.currentMealId,
+        logTime: LocalTime,
+    ) {
+        saveManualEntry(
+            name = draft.name,
+            calories = draft.caloriesKcal,
+            protein = draft.proteinG,
+            carbs = draft.carbsG,
+            fat = draft.fatG,
+            micronutrients = MicronutrientValues(fiber = draft.fiberG),
+            mealType = mealType,
+            logTime = logTime,
+        )
+    }
+
+    /**
      * Water / non-food: selected day + wall clock. Food logs use
      * [timestampForFoodLog] so a session stamp does not move sips.
      */

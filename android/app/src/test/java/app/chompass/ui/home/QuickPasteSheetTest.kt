@@ -1,0 +1,198 @@
+package app.chompass.ui.home
+
+import android.app.Application
+import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.chompass.services.quickpaste.QuickPasteDraft
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Drives the real Quick Paste sheet body: paste text, read the preview, edit a
+ * field, save once, cancel without saving. This is the UI half of the feature —
+ * the grammar itself is covered by NutritionTextParserTest.
+ */
+@RunWith(AndroidJUnit4::class)
+@Config(sdk = [34], application = Application::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class QuickPasteSheetTest {
+
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private val saved = mutableListOf<QuickPasteDraft>()
+    private var dismissed = 0
+
+    private fun render(isSaving: Boolean = false) {
+        composeRule.setContent {
+            val state = remember { QuickPasteState() }
+            QuickPasteSheetContent(
+                state = state,
+                isSaving = isSaving,
+                onDismiss = { dismissed++ },
+                onSave = { saved += it },
+            )
+        }
+    }
+
+    private fun type(text: String) {
+        composeRule.onNodeWithTag(QuickPasteTestTags.INPUT).performTextReplacement(text)
+        composeRule.waitForIdle()
+    }
+
+    private fun saveButton() = composeRule.onNodeWithTag(QuickPasteTestTags.SAVE)
+
+    private fun fieldText(tag: String): String {
+        val node = composeRule.onNodeWithTag(tag).fetchSemanticsNode()
+        return node.config.getOrNull(SemanticsProperties.EditableText)?.text.orEmpty()
+    }
+
+    @Test
+    fun `pasting a line fills the editable preview`() {
+        render()
+        type("牛肉饭55蛋白30碳水15膳食1500大卡45脂肪")
+
+        assertEquals("牛肉饭", fieldText(QuickPasteTestTags.NAME))
+        assertEquals("1500", fieldText(QuickPasteTestTags.KCAL))
+        assertEquals("55", fieldText(QuickPasteTestTags.PROTEIN))
+        assertEquals("30", fieldText(QuickPasteTestTags.CARBS))
+        assertEquals("45", fieldText(QuickPasteTestTags.FAT))
+        assertEquals("15", fieldText(QuickPasteTestTags.FIBER))
+    }
+
+    @Test
+    fun `save starts disabled until the text parses`() {
+        render()
+        saveButton().assertIsNotEnabled()
+
+        type("鸡胸肉 350kcal 蛋白质60g 脂肪8g 碳水0g")
+        saveButton().assertIsEnabled()
+    }
+
+    @Test
+    fun `save emits one draft with the parsed values and never repeats`() {
+        render()
+        type("三文鱼饭 650大卡 P35 C70 F25 纤维4")
+
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+        // A second tap (double-click, or a tap after the first one closed the
+        // sheet) must not create another diary row.
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, saved.size)
+        val draft = saved.single()
+        assertEquals("三文鱼饭", draft.name)
+        assertEquals(650, draft.caloriesKcal)
+        assertEquals(35.0, draft.proteinG, 0.001)
+        assertEquals(70.0, draft.carbsG, 0.001)
+        assertEquals(25.0, draft.fatG, 0.001)
+        assertEquals(4.0, draft.fiberG!!, 0.001)
+    }
+
+    @Test
+    fun `cancel dismisses without saving`() {
+        render()
+        type("鸡胸肉 350kcal 蛋白质60g 脂肪8g 碳水0g")
+
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, dismissed)
+        assertTrue(saved.isEmpty())
+    }
+
+    @Test
+    fun `manual edit overrides the parsed number`() {
+        render()
+        type("鸡胸肉 350kcal 蛋白质60g 脂肪8g 碳水0g")
+        composeRule.onNodeWithTag(QuickPasteTestTags.KCAL).performTextReplacement("900")
+        composeRule.waitForIdle()
+
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(900, saved.single().caloriesKcal)
+    }
+
+    @Test
+    fun `conflicting duplicate values block save and explain why`() {
+        render()
+        type("鸡胸肉 300大卡 500大卡 30蛋白 20碳水 10脂肪")
+
+        assertEquals("", fieldText(QuickPasteTestTags.KCAL))
+        saveButton().assertIsNotEnabled()
+        composeRule.onNodeWithText("Calories appears twice (300, 500). Type one value.").assertExists()
+    }
+
+    @Test
+    fun `kilojoules are converted before saving`() {
+        render()
+        type("鸡胸肉 1500千焦 30蛋白 20碳水 10脂肪")
+
+        assertEquals("358.51", fieldText(QuickPasteTestTags.KCAL))
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(359, saved.single().caloriesKcal)
+    }
+
+    @Test
+    fun `missing required field keeps save disabled`() {
+        render()
+        type("鸡胸肉 350大卡 蛋白质60g")
+
+        assertEquals("", fieldText(QuickPasteTestTags.CARBS))
+        saveButton().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `wrong unit is surfaced instead of guessed`() {
+        render()
+        type("鸡胸肉 500g 热量 30蛋白 20碳水 10脂肪")
+
+        assertEquals("", fieldText(QuickPasteTestTags.KCAL))
+        composeRule.onNodeWithText("Calories cannot be given in g.").assertExists()
+        saveButton().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `unparseable text reports nothing found`() {
+        render()
+        type("今天吃了点东西")
+
+        saveButton().assertIsNotEnabled()
+        composeRule.onNodeWithText("No nutrition numbers found. Try “Chicken 350 kcal 30 protein”.")
+            .assertExists()
+    }
+
+    @Test
+    fun `fiber is optional so a complete entry can be saved without it`() {
+        render()
+        type("鸡胸肉 350kcal 蛋白质60g 脂肪8g 碳水0g")
+
+        assertEquals("", fieldText(QuickPasteTestTags.FIBER))
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, saved.size)
+        assertNull(saved.single().fiberG)
+    }
+}

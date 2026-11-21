@@ -264,6 +264,20 @@
     <string name="home_menu_text_input">文本输入</string>
     <string name="home_menu_voice">语音</string>
     <string name="home_menu_manual_entry">手动输入</string>
+    <string name="home_menu_quick_paste">快捷粘贴</string>
+    <!-- 快捷粘贴营养录入：本地解析，不调用 AI。 -->
+    <string name="quick_paste_title">快捷粘贴</string>
+    <string name="quick_paste_input_placeholder">粘贴营养文本，例如 鸡胸肉 350 kcal 30蛋白 20碳水 10脂肪</string>
+    <string name="quick_paste_name_label">食物名称</string>
+    <string name="quick_paste_name_placeholder">食物名称</string>
+    <string name="quick_paste_field_label">%1$s（%2$s）</string>
+    <string name="quick_paste_no_nutrition">没有找到营养数据。试试「鸡胸肉 350 kcal 30蛋白」。</string>
+    <string name="quick_paste_no_name">请填写食物名称。</string>
+    <string name="quick_paste_missing">未识别：%1$s。日记需要这些数值，请手动填写（0 也可以）。</string>
+    <string name="quick_paste_conflict">%1$s 出现了两次（%2$s），请只填一个值。</string>
+    <string name="quick_paste_unit_error">%1$s 不能用 %2$s 作单位。</string>
+    <string name="quick_paste_converted_kj">已换算 %1$s kJ ≈ %2$s kcal。</string>
+    <string name="quick_paste_abbrev">“%1$s”单独出现时含义不明确，请手动填写。</string>
     <string name="home_menu_saved_meals">已保存的餐食</string>
     <string name="home_menu_barcode">条形码</string>
     <string name="shortcut_camera_short">相机</string>

@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
@@ -143,6 +144,8 @@ internal fun AddFoodQueryRow(
     onNote: () -> Unit,
     onSavedMeals: () -> Unit,
     onManual: () -> Unit,
+    /** Quick Paste Nutrition Entry: local text -> macros, no AI. */
+    onQuickPaste: () -> Unit = {},
     onCopyFromDay: () -> Unit,
     onManualActive: () -> Unit,
     onQueue: () -> Unit,
@@ -240,6 +243,7 @@ internal fun AddFoodQueryRow(
                 onNote = onNote,
                 onSavedMeals = onSavedMeals,
                 onManual = onManual,
+                onQuickPaste = onQuickPaste,
                 onCopyFromDay = onCopyFromDay,
                 onManualActive = onManualActive,
                 onQueue = onQueue,
@@ -1089,6 +1093,7 @@ private fun AddFoodMoreButton(
     onNote: () -> Unit,
     onSavedMeals: () -> Unit,
     onManual: () -> Unit,
+    onQuickPaste: () -> Unit,
     onCopyFromDay: () -> Unit,
     onManualActive: () -> Unit,
     onQueue: () -> Unit,
@@ -1148,6 +1153,13 @@ private fun AddFoodMoreButton(
                 label = stringResource(R.string.home_menu_manual_entry),
                 leadingIcon = Icons.Filled.DriveFileRenameOutline,
             ) { open = false; onManual() }
+            // Quick Paste sits next to Manual entry: same destination (a
+            // hand-typed food row), but the numbers are parsed from pasted
+            // text on-device instead of typed into five fields.
+            SheetGlassDropdownMenuItem(
+                label = stringResource(R.string.home_menu_quick_paste),
+                leadingIcon = Icons.Filled.ContentPaste,
+            ) { open = false; onQuickPaste() }
             SheetGlassDropdownMenuItem(
                 label = stringResource(R.string.home_menu_copy_from_day),
                 leadingIcon = Icons.Filled.CalendarMonth,

@@ -201,6 +201,8 @@ fun HomeScreen(
     var showText by rememberSaveable { mutableStateOf(false) }
     var showVoiceLocal by rememberSaveable { mutableStateOf(false) }
     var showManual by rememberSaveable { mutableStateOf(false) }
+    // Quick Paste Nutrition Entry: pasted text parsed on-device into a food row.
+    var showQuickPaste by rememberSaveable { mutableStateOf(false) }
     var savedMealsTab by rememberSaveable { mutableStateOf<SavedTab?>(null) }
     var showBarcodeScannerLocal by rememberSaveable { mutableStateOf(false) }
     var showCopyFromDay by rememberSaveable { mutableStateOf(false) }
@@ -1596,6 +1598,10 @@ fun HomeScreen(
                 addFoodFlowActive = true
                 showManual = true
             },
+            onQuickPaste = {
+                addFoodFlowActive = true
+                showQuickPaste = true
+            },
             onCopyFromDay = {
                 addFoodFlowActive = true
                 showCopyFromDay = true
@@ -1922,6 +1928,34 @@ fun HomeScreen(
                     )
                 }
             }
+        )
+    }
+
+    if (showQuickPaste) {
+        QuickPasteSheet(
+            isSaving = ui.saving,
+            onDismiss = {
+                showQuickPaste = false
+                returnToAddFoodGrid()
+            },
+            onSave = { draft ->
+                // Saving is explicit: the diary row is created only from this
+                // callback, never from the parse itself, and only once per
+                // opened sheet (QuickPasteState.requestSave gates the repeat).
+                if (!ui.saving) {
+                    showQuickPaste = false
+                    addFoodFlowActive = false
+                    vm.saveQuickPasteEntry(
+                        draft = draft,
+                        mealType = suggestedSlotFor(
+                            ui.mealTimesEnabled,
+                            CurrentMealCatalog.value,
+                            ui.logTimeOverride ?: LocalTime.now(),
+                        ),
+                        logTime = ui.logTimeOverride ?: LocalTime.now(),
+                    )
+                }
+            },
         )
     }
 

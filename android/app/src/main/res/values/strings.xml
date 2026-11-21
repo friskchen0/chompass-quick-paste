@@ -438,6 +438,20 @@
     <string name="home_menu_text_input">Text Input</string>
     <string name="home_menu_voice">Voice</string>
     <string name="home_menu_manual_entry">Manual Entry</string>
+    <string name="home_menu_quick_paste">Quick Paste</string>
+    <!-- Quick Paste Nutrition Entry: local text -> macros preview, no AI call. -->
+    <string name="quick_paste_title">Quick Paste</string>
+    <string name="quick_paste_input_placeholder">Paste nutrition text, e.g. 鸡胸肉 350 kcal 30 protein 20 carbs 10 fat</string>
+    <string name="quick_paste_name_label">Food name</string>
+    <string name="quick_paste_name_placeholder">Food name</string>
+    <string name="quick_paste_field_label">%1$s (%2$s)</string>
+    <string name="quick_paste_no_nutrition">No nutrition numbers found. Try “Chicken 350 kcal 30 protein”.</string>
+    <string name="quick_paste_no_name">Add a food name.</string>
+    <string name="quick_paste_missing">Not found: %1$s. The diary needs these; type a value (0 is fine).</string>
+    <string name="quick_paste_conflict">%1$s appears twice (%2$s). Type one value.</string>
+    <string name="quick_paste_unit_error">%1$s cannot be given in %2$s.</string>
+    <string name="quick_paste_converted_kj">Converted %1$s kJ ≈ %2$s kcal.</string>
+    <string name="quick_paste_abbrev">“%1$s” is ambiguous on its own. Type the value manually.</string>
     <string name="home_menu_saved_meals">Saved Meals</string>
     <string name="home_menu_barcode">Barcode</string>
     <string name="home_menu_grounded">Grounded</string>
