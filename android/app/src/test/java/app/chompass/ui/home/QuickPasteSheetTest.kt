@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.compose.runtime.remember
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -32,7 +34,6 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [34], application = Application::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class QuickPasteSheetTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -194,5 +195,67 @@ class QuickPasteSheetTest {
 
         assertEquals(1, saved.size)
         assertNull(saved.single().fiberG)
+    }
+
+    // --------------------------------------------- live validation feedback
+
+    @Test
+    fun `missing field message disappears once the user fills it`() {
+        render()
+        type("鸡胸肉 350大卡 蛋白质60g")
+        composeRule
+            .onNodeWithText("Not found: Carbs, Fat. The diary needs these; type a value (0 is fine).")
+            .assertExists()
+
+        composeRule.onNodeWithTag(QuickPasteTestTags.CARBS).performTextReplacement("20")
+        composeRule.onNodeWithTag(QuickPasteTestTags.FAT).performTextReplacement("10")
+        composeRule.waitForIdle()
+
+        composeRule.onAllNodesWithText("Not found: Carbs, Fat. The diary needs these; type a value (0 is fine).")
+            .assertCountEquals(0)
+        saveButton().assertIsEnabled()
+    }
+
+    @Test
+    fun `conflict message disappears when the user resolves the field`() {
+        render()
+        type("鸡胸肉 300大卡 500大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithText("Calories appears twice (300, 500). Type one value.").assertExists()
+        saveButton().assertIsNotEnabled()
+
+        composeRule.onNodeWithTag(QuickPasteTestTags.KCAL).performTextReplacement("400")
+        composeRule.waitForIdle()
+
+        composeRule.onAllNodesWithText("Calories appears twice (300, 500). Type one value.")
+            .assertCountEquals(0)
+        saveButton().assertIsEnabled()
+    }
+
+    @Test
+    fun `typed value outside the diary range blocks save`() {
+        render()
+        type("鸡胸肉 350大卡 30蛋白 20碳水 10脂肪")
+        composeRule.onNodeWithTag(QuickPasteTestTags.KCAL).performTextReplacement("999999999")
+        composeRule.waitForIdle()
+
+        saveButton().assertIsNotEnabled()
+        composeRule
+            .onNodeWithText("Calories is outside the range one diary row can hold.")
+            .assertExists()
+    }
+
+    @Test
+    fun `explicit zero is kept and saved as zero`() {
+        render()
+        type("苏打水 0大卡 0蛋白 0碳水 0脂肪")
+
+        assertEquals("0", fieldText(QuickPasteTestTags.KCAL))
+        assertEquals("0", fieldText(QuickPasteTestTags.CARBS))
+
+        saveButton().performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(0, saved.single().caloriesKcal)
+        assertEquals(0.0, saved.single().carbsG, 0.001)
     }
 }

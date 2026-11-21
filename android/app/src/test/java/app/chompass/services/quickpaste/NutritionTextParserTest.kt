@@ -11,7 +11,6 @@ import org.junit.Test
  * awkward ones (missing fields, duplicates, bad units, digits inside names).
  */
 class NutritionTextParserTest {
-
     private fun assertClose(expected: Double?, actual: Double?, delta: Double = 0.01) {
         if (expected == null) {
             assertNull("expected no value, got $actual", actual)
@@ -300,5 +299,99 @@ class NutritionTextParserTest {
         assertEquals(30.0, r.proteinG!!, 0.01)
         assertEquals(20.0, r.carbsG!!, 0.01)
         assertEquals(10.0, r.fatG!!, 0.01)
+    }
+
+    // ------------------------------------- on-device cases (2026-11-21)
+
+    @Test
+    fun `device test 1 - chinese with mixed punctuation`() {
+        val r = NutritionTextParser.parse("牛肉丸50大卡蛋白质30，39碳水，fat15")
+        assertAll(r, name = "牛肉丸", kcal = 50.0, protein = 30.0, carbs = 39.0, fat = 15.0, fiber = null)
+    }
+
+    @Test
+    fun `device test 2 - protein keyword inside the food name`() {
+        val r = NutritionTextParser.parse("蛋白质饮料，蛋白55，976kcal，fat49 31carb")
+        assertAll(r, name = "蛋白质饮料", kcal = 976.0, protein = 55.0, carbs = 31.0, fat = 49.0)
+    }
+
+    @Test
+    fun `device test 3 - english abbreviations with no spaces`() {
+        val r = NutritionTextParser.parse("banana 15prot 20kcal fat50 carb64 fiber68")
+        assertAll(r, name = "banana", kcal = 20.0, protein = 15.0, carbs = 64.0, fat = 50.0, fiber = 68.0)
+    }
+
+    // ------------------------------------------- bad numbers / bad input
+
+    @Test
+    fun `negative number is rejected not silently made positive`() {
+        val r = NutritionTextParser.parse("-50大卡 30蛋白 20碳水 10脂肪")
+        assertNull(r.caloriesKcal)
+        assertTrue(r.issues.any { it is QuickPasteIssue.NegativeValue })
+    }
+
+    @Test
+    fun `hyphen between two numbers is a range not a sign`() {
+        val r = NutritionTextParser.parse("鸡胸肉 30-40蛋白 200大卡 20碳水 10脂肪")
+        assertEquals(40.0, r.proteinG!!, 0.01)
+        assertTrue(r.issues.none { it is QuickPasteIssue.NegativeValue })
+    }
+
+    @Test
+    fun `absurd calories are reported instead of overflowing an Int`() {
+        val r = NutritionTextParser.parse("pizza 99999999999999999999大卡 30蛋白 20碳水 10脂肪")
+        assertNull(r.caloriesKcal)
+        val issue = r.issues.filterIsInstance<QuickPasteIssue.ImplausibleValue>().first()
+        assertEquals(NutrientField.CALORIES, issue.field)
+    }
+
+    @Test
+    fun `absurd macro grams are reported`() {
+        val r = NutritionTextParser.parse("鸡胸肉 300大卡 50000蛋白 20碳水 10脂肪")
+        assertNull(r.proteinG)
+        assertTrue(
+            r.issues.filterIsInstance<QuickPasteIssue.ImplausibleValue>()
+                .any { it.field == NutrientField.PROTEIN },
+        )
+    }
+
+    @Test
+    fun `explicit zero is a value not a missing field`() {
+        val r = NutritionTextParser.parse("苏打水 0大卡 0蛋白 0碳水 0脂肪")
+        assertEquals(0.0, r.caloriesKcal!!, 0.001)
+        assertEquals(0.0, r.proteinG!!, 0.001)
+        assertEquals(0.0, r.carbsG!!, 0.001)
+        assertEquals(0.0, r.fatG!!, 0.001)
+        assertTrue(r.issues.none { it is QuickPasteIssue.MissingFields })
+    }
+
+    @Test
+    fun `unsupported language labels do not land in the wrong field`() {
+        // German labels are outside the supported set (English + Simplified
+        // Chinese). The universal unit still reads, the labels do not — and
+        // crucially nothing is guessed onto protein/carbs/fat.
+        val r = NutritionTextParser.parse("Hähnchen 300 kcal Eiweiß 30g Fett 8g")
+        assertEquals(300.0, r.caloriesKcal!!, 0.01)
+        assertNull(r.proteinG)
+        assertNull(r.carbsG)
+        assertNull(r.fatG)
+        val missing = r.issues.filterIsInstance<QuickPasteIssue.MissingFields>().single().fields
+        assertEquals(listOf(NutrientField.PROTEIN, NutrientField.CARBS, NutrientField.FAT), missing)
+    }
+
+    @Test
+    fun `hostile input never throws`() {
+        val inputs = listOf(
+            "", "   ", "\n\n", "-", "--", "，。；、", "0", "999999999999999999999999999999999",
+            "蛋白", "蛋白质", "kcal", "kj", "P C F", "P35", "-50", "😀 300大卡",
+            "protein 30 g", "  fat\t49\n", "卡布奇诺", "1.2.3大卡", "..", "1,2,3",
+            "蛋白质(g)30", "30克蛋白质", "500 大卡 40 蛋白 50 碳水 15 脂肪",
+            "a".repeat(2000) + "300大卡", "，".repeat(500),
+            "100000000大卡 100000000蛋白 100000000碳水 100000000脂肪",
+        )
+        for (text in inputs) {
+            val r = NutritionTextParser.parse(text)
+            assertTrue("name longer than input for ${text.take(20)}", r.foodName.length <= text.length)
+        }
     }
 }

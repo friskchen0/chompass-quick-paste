@@ -8,7 +8,7 @@ Style: entries follow the release-text style guide (maintainer-local, not publis
 
 ### Added
 
-- **Pasted nutrition text becomes a food row** (Android, prototype): Add Food → More → Quick Paste takes a line such as `牛肉饭55蛋白30碳水15膳食1500大卡45脂肪` or `Chicken 350 kcal protein 30g carbs 20g fat 8g`, parses the name and the five macro fields on the device with no AI call or network request, and shows them in editable fields before anything is saved. kJ and 千焦 are converted to kcal, duplicate or unit-mismatched values are flagged instead of guessed, and the row is only written to the diary when you tap Save.
+- **Pasted nutrition text becomes a food row** (Android): Add Food → More → Quick Paste takes a line such as `牛肉饭55蛋白30碳水15膳食1500大卡45脂肪` or `Chicken 350 kcal protein 30g carbs 20g fat 8g`, parses the name and the five macro fields on the device with no AI call or network request, and shows them in editable fields before anything is saved. kJ and 千焦 are converted to kcal, duplicate or unit-mismatched values are flagged instead of guessed, and the row is only written to the diary when you tap Save.
 
 ### Fixed
 

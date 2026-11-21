@@ -25,9 +25,17 @@ package app.chompass.services.quickpaste
  * the whole grammar is unit-testable on the JVM.
  */
 object NutritionTextParser {
-
     /** 1 kcal == 4.184 kJ (thermochemical calorie, the label convention). */
     const val KJ_PER_KCAL: Double = 4.184
+
+    /**
+     * Ceilings for a single diary row. Generous on purpose: they exist to stop
+     * Int overflow (a pasted `99999999999999999999大卡` would otherwise become
+     * `Int.MAX_VALUE`) and obvious paste accidents, not to police what a user
+     * ate. Violating values are reported and left empty, never clamped.
+     */
+    const val MAX_CALORIES_KCAL: Double = 100_000.0
+    const val MAX_GRAMS: Double = 10_000.0
 
     /**
      * Parse one pasted line. Never throws; unparseable input comes back as an
@@ -48,6 +56,17 @@ object NutritionTextParser {
         val consumedKeywords = mutableSetOf<Int>()
         val values = LinkedHashMap<NutrientField, MutableList<Double>>()
         val issues = mutableListOf<QuickPasteIssue>()
+
+        // One gate for every accepted number: reject what a diary row cannot
+        // hold instead of writing it and discovering the overflow later.
+        fun record(field: NutrientField, value: Double) {
+            val max = if (field == NutrientField.CALORIES) MAX_CALORIES_KCAL else MAX_GRAMS
+            if (!value.isFinite() || value < 0 || value > max) {
+                issues += QuickPasteIssue.ImplausibleValue(field, value)
+            } else {
+                values.getOrPut(field) { mutableListOf() } += value
+            }
+        }
 
         // P/C/F are only trusted when at least two of the trio appear: a lone
         // "P35" is far more likely a model code or a typo than protein.
@@ -72,11 +91,13 @@ object NutritionTextParser {
             if (candidate.unitKeywordIndex >= 0) consumedKeywords += candidate.unitKeywordIndex
 
             val unitFamily = candidate.unitFamily
+            val negated = isNegated(norm, candidate.numberStart)
             when (kw.field) {
                 NutrientField.CALORIES -> when {
-                    unitFamily == UnitFamily.MASS || unitFamily == UnitFamily.OTHER -> {
+                    unitFamily == UnitFamily.MASS || unitFamily == UnitFamily.OTHER ->
                         issues += QuickPasteIssue.UnsupportedUnit(kw.field, candidate.unitText ?: "")
-                    }
+
+                    negated -> issues += QuickPasteIssue.NegativeValue(kw.field)
 
                     else -> {
                         val energy = when {
@@ -91,15 +112,17 @@ object NutritionTextParser {
                         } else {
                             candidate.value
                         }
-                        values.getOrPut(kw.field) { mutableListOf() } += value
+                        record(kw.field, value)
                     }
                 }
 
-                else -> when (unitFamily) {
-                    UnitFamily.KCAL, UnitFamily.KJ, UnitFamily.OTHER ->
+                else -> when {
+                    unitFamily == UnitFamily.KCAL || unitFamily == UnitFamily.KJ || unitFamily == UnitFamily.OTHER ->
                         issues += QuickPasteIssue.UnsupportedUnit(kw.field, candidate.unitText ?: "")
 
-                    else -> values.getOrPut(kw.field) { mutableListOf() } += candidate.value
+                    negated -> issues += QuickPasteIssue.NegativeValue(kw.field)
+
+                    else -> record(kw.field, candidate.value)
                 }
             }
         }
@@ -512,6 +535,16 @@ object NutritionTextParser {
 
     private fun isCjk(c: Char): Boolean = c.code in 0x4E00..0x9FFF
 
+    /**
+     * `-50大卡` is a negative entry, not a value: `-` is one of the scanner's
+     * separators, so the sign has to be read back off the raw text. A hyphen
+     * wedged between two digits (`30-40蛋白`) is a range, not a sign.
+     */
+    private fun isNegated(norm: String, numberStart: Int): Boolean {
+        if (numberStart <= 0 || norm[numberStart - 1] != '-') return false
+        return numberStart - 2 < 0 || !norm[numberStart - 2].isDigit()
+    }
+
     // ------------------------------------------------------------- internals
 
     private class KeywordSpec(
@@ -582,6 +615,15 @@ sealed interface QuickPasteIssue {
 
     /** A lone P/C/F abbreviation: recognised, deliberately not trusted. */
     data class AmbiguousAbbreviation(val token: String) : QuickPasteIssue
+
+    /** A negative number: no nutrient can be below zero, so it is not recorded. */
+    data class NegativeValue(val field: NutrientField) : QuickPasteIssue
+
+    /**
+     * A number one diary row cannot plausibly hold (also the Int-overflow
+     * guard for `calories`). Reported, left empty, never clamped.
+     */
+    data class ImplausibleValue(val field: NutrientField, val value: Double) : QuickPasteIssue
 }
 
 /** Parse outcome for one pasted line. `null` means "the user did not say". */
@@ -594,26 +636,9 @@ data class QuickPasteParseResult(
     val fiberG: Double?,
     val issues: List<QuickPasteIssue>,
 ) {
-    fun valueOf(field: NutrientField): Double? = when (field) {
-        NutrientField.CALORIES -> caloriesKcal
-        NutrientField.PROTEIN -> proteinG
-        NutrientField.CARBS -> carbsG
-        NutrientField.FAT -> fatG
-        NutrientField.FIBER -> fiberG
-    }
-
-    /** Required columns still unknown — the UI blocks Save until they are typed. */
-    val missingRequired: List<NutrientField>
-        get() = NutritionTextParser.REQUIRED_FIELDS.filter { valueOf(it) == null }
-
+    /** Duplicate-value contradictions; only fields the user has not fixed yet. */
     val conflicts: List<QuickPasteIssue.ConflictingValues>
         get() = issues.filterIsInstance<QuickPasteIssue.ConflictingValues>()
-
-    val unitErrors: List<QuickPasteIssue.UnsupportedUnit>
-        get() = issues.filterIsInstance<QuickPasteIssue.UnsupportedUnit>()
-
-    val hasConflictOrUnitError: Boolean
-        get() = conflicts.isNotEmpty() || unitErrors.isNotEmpty()
 }
 
 private enum class UnitFamily { NONE, KCAL, KJ, MASS, OTHER }

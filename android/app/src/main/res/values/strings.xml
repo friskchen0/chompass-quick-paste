@@ -452,6 +452,9 @@
     <string name="quick_paste_unit_error">%1$s cannot be given in %2$s.</string>
     <string name="quick_paste_converted_kj">Converted %1$s kJ ≈ %2$s kcal.</string>
     <string name="quick_paste_abbrev">“%1$s” is ambiguous on its own. Type the value manually.</string>
+    <string name="quick_paste_out_of_range">%1$s is outside the range one diary row can hold.</string>
+    <string name="quick_paste_negative">%1$s is negative; enter a positive value.</string>
+    <string name="quick_paste_implausible">%1$s %2$s is too large for one diary row.</string>
     <string name="home_menu_saved_meals">Saved Meals</string>
     <string name="home_menu_barcode">Barcode</string>
     <string name="home_menu_grounded">Grounded</string>

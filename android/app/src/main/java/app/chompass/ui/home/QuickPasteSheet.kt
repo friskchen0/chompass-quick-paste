@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.chompass.R
@@ -120,6 +122,7 @@ internal fun QuickPasteSheetContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(4.dp))
+                val nameLabel = stringResource(R.string.quick_paste_name_label)
                 ChompassTextField(
                     value = state.name,
                     onValueChange = state::onNameChange,
@@ -127,7 +130,10 @@ internal fun QuickPasteSheetContent(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag(QuickPasteTestTags.NAME),
+                        .testTag(QuickPasteTestTags.NAME)
+                        // The visible caption is a sibling Text, so the field
+                        // needs its own accessible name for screen readers.
+                        .semantics { contentDescription = nameLabel },
                 )
             }
 
@@ -217,6 +223,7 @@ private fun NumberField(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(4.dp))
+        val accessibleName = stringResource(R.string.quick_paste_field_label, label, unit)
         ChompassTextField(
             value = value,
             onValueChange = onValueChange,
@@ -225,7 +232,8 @@ private fun NumberField(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag(tag),
+                .testTag(tag)
+                .semantics { contentDescription = accessibleName },
         )
     }
 }
@@ -238,7 +246,12 @@ private fun NumberField(
 @Composable
 private fun QuickPasteIssueLines(state: QuickPasteState) {
     val lines = mutableListOf<Pair<String, Boolean>>()
-    for (issue in state.issues) {
+    // Out-of-range is computed from what the fields hold right now, because the
+    // user can type a value the parser never saw.
+    for (field in state.outOfRangeFields) {
+        lines += stringResource(R.string.quick_paste_out_of_range, fieldLabel(field)) to true
+    }
+    for (issue in state.visibleIssues()) {
         when (issue) {
             QuickPasteIssue.NoNutritionFound ->
                 lines += stringResource(R.string.quick_paste_no_nutrition) to true
@@ -279,6 +292,17 @@ private fun QuickPasteIssueLines(state: QuickPasteState) {
                 R.string.quick_paste_abbrev,
                 issue.token,
             ) to false
+
+            is QuickPasteIssue.NegativeValue -> lines += stringResource(
+                R.string.quick_paste_negative,
+                fieldLabel(issue.field),
+            ) to true
+
+            is QuickPasteIssue.ImplausibleValue -> lines += stringResource(
+                R.string.quick_paste_implausible,
+                fieldLabel(issue.field),
+                formatQuantity(issue.value),
+            ) to true
         }
     }
     if (lines.isEmpty()) return
@@ -401,18 +425,74 @@ internal class QuickPasteState {
         clearConflict(NutrientField.FIBER)
     }
 
-    /** The row that would be saved, or null while a required number is missing. */
+    private fun textOf(field: NutrientField): String = when (field) {
+        NutrientField.CALORIES -> kcalText
+        NutrientField.PROTEIN -> proteinText
+        NutrientField.CARBS -> carbsText
+        NutrientField.FAT -> fatText
+        NutrientField.FIBER -> fiberText
+    }
+
+    private fun valueOf(field: NutrientField): Double? = textOf(field).trim().toDoubleOrNull()
+
+    private fun maxOf(field: NutrientField): Double =
+        if (field == NutrientField.CALORIES) {
+            NutritionTextParser.MAX_CALORIES_KCAL
+        } else {
+            NutritionTextParser.MAX_GRAMS
+        }
+
+    /** Required columns that are still blank (or not a number) right now. */
+    val missingRequiredFields: List<NutrientField>
+        get() = NutritionTextParser.REQUIRED_FIELDS.filter { valueOf(it) == null }
+
+    /** Fields holding a number a single diary row cannot take. Save stays off. */
+    val outOfRangeFields: List<NutrientField>
+        get() = NutrientField.entries.filter { field ->
+            val value = valueOf(field) ?: return@filter false
+            !value.isFinite() || value < 0 || value > maxOf(field)
+        }
+
+    /**
+     * What the sheet should say right now. Re-derived from the fields instead
+     * of replaying the parse, so a message disappears as soon as the user fixes
+     * the thing it complained about (typing the missing carb, resolving a
+     * duplicate, naming the food).
+     */
+    fun visibleIssues(): List<QuickPasteIssue> {
+        val visible = mutableListOf<QuickPasteIssue>()
+        for (issue in issues) {
+            when (issue) {
+                is QuickPasteIssue.ConflictingValues -> if (issue.field in conflictFields) visible += issue
+                // Recomputed below from the live fields.
+                is QuickPasteIssue.MissingFields, QuickPasteIssue.NoFoodName -> Unit
+                else -> visible += issue
+            }
+        }
+        val missing = missingRequiredFields
+        val hasAnyNumber = NutrientField.entries.any { !textOf(it).isBlank() }
+        if (hasAnyNumber && missing.isNotEmpty()) {
+            visible += QuickPasteIssue.MissingFields(missing)
+        }
+        if (name.isBlank() && text.isNotBlank()) {
+            visible += QuickPasteIssue.NoFoodName
+        }
+        return visible
+    }
+
+    /** The row that would be saved, or null while a required number is unusable. */
     val draft: QuickPasteDraft?
         get() {
-            val kcal = kcalText.trim().toDoubleOrNull() ?: return null
-            val protein = proteinText.trim().toDoubleOrNull() ?: return null
-            val carbs = carbsText.trim().toDoubleOrNull() ?: return null
-            val fat = fatText.trim().toDoubleOrNull() ?: return null
-            val fiberRaw = fiberText.trim()
-            val fiber = if (fiberRaw.isEmpty()) null else fiberRaw.toDoubleOrNull() ?: return null
             if (name.isBlank()) return null
-            if (kcal < 0 || protein < 0 || carbs < 0 || fat < 0) return null
-            if (fiber != null && fiber < 0) return null
+            if (missingRequiredFields.isNotEmpty()) return null
+            if (outOfRangeFields.isNotEmpty()) return null
+            val kcal = valueOf(NutrientField.CALORIES) ?: return null
+            val protein = valueOf(NutrientField.PROTEIN) ?: return null
+            val carbs = valueOf(NutrientField.CARBS) ?: return null
+            val fat = valueOf(NutrientField.FAT) ?: return null
+            // Blank fiber means "not provided" (the diary column is nullable);
+            // an explicit 0 is kept as 0.
+            val fiber = valueOf(NutrientField.FIBER)
             return QuickPasteDraft(
                 name = name.trim(),
                 caloriesKcal = kcal.roundToInt(),
