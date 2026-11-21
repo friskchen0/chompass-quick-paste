@@ -1,3 +1,19 @@
+> **Unofficial experimental fork — not an official Chompass release.**
+>
+> This repository is an independent, experimental modification built on top of the official
+> [Chompass](https://codeberg.org/fitguy/Chompass) project by [fitguy](https://codeberg.org/fitguy).
+> It is **not** an official Chompass release and is **not** endorsed, approved or supported by the
+> original author. It exists for personal learning, research, testing and feature exploration, and
+> it is provided as-is, without warranty — expect incomplete or broken behaviour.
+>
+> This fork was developed with substantial **AI assistance**, and its code has not been fully and
+> independently reviewed by a human. Treat it as experimental work, not production software.
+>
+> Chompass and this fork are free software under the **GNU General Public License v3.0 or later**
+> (`GPL-3.0-or-later`); see [LICENSE](LICENSE). All copyright, attribution and licensing for the
+> original project remain with its authors, and this fork adds **no** further restrictions on use,
+> modification or redistribution.
+
 <div align="center">
 
 <img src="website/static/img/banner.svg" alt="Chompass — private calorie tracking" width="600" />
